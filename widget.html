@@ -1,0 +1,262 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link rel="stylesheet" href="./styles.css">
+
+<section id="chat-widget" role="dialog" aria-labelledby="chat-header" aria-hidden="true"><section id="chat-widget" role="dialog" aria-labelledby="chat-header">
+    <div id="chat-widget-container">
+        <button id="chat-toggle-button"><i id="chat-toggle-icon" class="fas fa-comments"></i></button>
+        <div id="custom-chat-widget" style="display: none;">
+            <div id="chat-header">
+                <span>Contact Us</span>
+                <button id="chat-close-button">&times;</button>
+            </div>
+            <form id="chat-form">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" placeholder="Your Name" required>
+
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Your Email" required>
+
+                <label for="phone">Phone (optional)</label>
+                <input type="tel" id="phone" name="phone" placeholder="Your Phone Number">
+
+                <label for="message">Message</label>
+
+                <!-- Quick Replies Section -->
+                <div id="quick-replies">
+                    <button class="quick-reply" data-message="I need help with a product.">I need help with a product</button>
+                    <button class="quick-reply" data-message="Can you provide more information about your services?">More info on services</button>
+                    <button class="quick-reply" data-message="I'd like to schedule a meeting.">Schedule a meeting</button>
+                </div>
+                <textarea id="message" name="message" placeholder="Your Message" required></textarea>
+
+                <button id="submit-button" type="submit">Send Message</button>
+                <!-- Forget Me Button -->
+                <button type="button" id="clear-user-data" class="clear-user-data" style="display: none;">Forget Me</button>
+            </form>
+            <div id="chat-response-message" style="display: none;"></div>
+        </div>
+    </div>
+</section>
+<script>
+    window.addEventListener('load', function () {
+        console.log("Window has loaded. Starting polling for chat widget...");
+
+        (function waitForChatWidget() {
+            var pollingAttempts = 0;
+            var maxPollingAttempts = 50; // Set a maximum number of polling attempts
+
+            (function poll() {
+                console.log('Polling for chat widget...');
+                var form = document.getElementById("chat-form");
+                var chatWidget = document.getElementById("custom-chat-widget");
+                var toggleButton = document.getElementById("chat-toggle-button");
+                var closeButton = document.getElementById("chat-close-button");
+                var responseMessage = document.getElementById("chat-response-message");
+                var clearUserDataButton = document.getElementById("clear-user-data");
+
+                if (form && chatWidget && toggleButton && closeButton && responseMessage && clearUserDataButton) {
+                    console.log('All chat widget elements are found. Initializing chat widget...');
+                    initializeChatWidget(); // Proceed to widget initialization
+                } else if (pollingAttempts < maxPollingAttempts) {
+                    console.warn('Some chat widget elements are missing. Trying again...');
+                    setTimeout(poll, 100);
+                    pollingAttempts++;
+                } else {
+                    console.error('Chat widget elements were not found. Stopping polling after max attempts.');
+                }
+            })();
+        })();
+
+        // Define the widget initialization function
+        function initializeChatWidget() {
+            console.log("Starting chat widget initialization...");
+
+            var form = document.getElementById("chat-form");
+            var chatWidget = document.getElementById("custom-chat-widget");
+            var toggleButton = document.getElementById("chat-toggle-button");
+            var closeButton = document.getElementById("chat-close-button");
+            var responseMessage = document.getElementById("chat-response-message");
+            var clearUserDataButton = document.getElementById("clear-user-data");
+
+            // Load user data from local storage if available
+            function loadUserData() {
+                try {
+                    var savedName = localStorage.getItem("chatName");
+                    var savedEmail = localStorage.getItem("chatEmail");
+                    var savedPhone = localStorage.getItem("chatPhone");
+                    if (savedName || savedEmail || savedPhone) {
+                        clearUserDataButton.style.display = "block"; // Show "Forget Me" button if data exists
+                    } else {
+                        clearUserDataButton.style.display = "none"; // Hide "Forget Me" button if no data
+                    }
+                    if (savedName) {
+                        document.getElementById("name").value = savedName;
+                    }
+                    if (savedEmail) {
+                        document.getElementById("email").value = savedEmail;
+                    }
+                    if (savedPhone) {
+                        document.getElementById("phone").value = savedPhone;
+                    }
+                } catch (error) {
+                    console.error("Error loading data from local storage: ", error);
+                }
+            }
+
+            // Save user data to local storage
+            function saveUserData() {
+                try {
+                    var name = document.getElementById("name").value;
+                    var email = document.getElementById("email").value;
+                    var phone = document.getElementById("phone").value;
+
+                    localStorage.setItem("chatName", name);
+                    localStorage.setItem("chatEmail", email);
+                    localStorage.setItem("chatPhone", phone);
+                } catch (error) {
+                    console.error("Error saving data to local storage: ", error);
+                }
+            }
+
+            // Toggle the chat widget display
+            toggleButton.addEventListener("click", function () {
+                if (chatWidget.style.display === "none" || !chatWidget.classList.contains("open")) {
+                    chatWidget.style.display = "flex";
+                    setTimeout(function () {
+                        chatWidget.classList.add("open");
+                    }, 10); // Delay to allow transition
+                    loadUserData(); // Load user data when the widget is opened
+                } else {
+                    closeChatWidget();
+                }
+                responseMessage.style.display = "none"; // Hide response message when reopening
+            });
+
+            // Close button click handler
+            closeButton.addEventListener("click", closeChatWidget);
+
+            function closeChatWidget() {
+                chatWidget.classList.remove("open");
+                setTimeout(function () {
+                    chatWidget.style.display = "none";
+                }, 300);
+            }
+
+            // Close widget if clicked outside
+            document.addEventListener("click", function (e) {
+                if (!chatWidget.contains(e.target) && !toggleButton.contains(e.target)) {
+                    if (chatWidget.classList.contains("open")) {
+                        closeChatWidget();
+                    }
+                }
+            });
+
+            // Form submission handling
+            var isSubmitting = false;
+            form.addEventListener("submit", function (e) {
+                e.preventDefault();
+                if (isSubmitting) return;
+
+                var name = document.getElementById("name").value;
+                var email = document.getElementById("email").value;
+                var phone = document.getElementById("phone").value;
+                var message = document.getElementById("message").value;
+
+                if (!validateFormData(name, email, phone, message)) {
+                    return; // Abort submission if validation fails
+                }
+
+                isSubmitting = true;
+                var submitButton = document.getElementById("submit-button");
+                submitButton.disabled = true;
+                submitButton.textContent = "Sending...";
+
+                // Webhook URL
+                var webhookURL = "https://broad-hall-5e51.krathaur.workers.dev/";
+
+                // Send data to webhook
+                fetch(webhookURL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ name: name, email: email, phone: phone, message: message })
+                })
+                    .then(function (response) {
+                        if (response.ok) {
+                            responseMessage.textContent = "Thank you! Your message has been sent.";
+                            responseMessage.className = "success";
+                            saveUserData(); // Save user data to local storage
+                            form.reset();
+                        } else {
+                            responseMessage.textContent = "There was an error submitting your message. Please try again.";
+                            responseMessage.className = "error";
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error("Error:", error);
+                        responseMessage.textContent = "An error occurred. Please try again.";
+                        responseMessage.className = "error";
+                    })
+                    .finally(function () {
+                        submitButton.disabled = false;
+                        submitButton.textContent = "Send Message";
+                        responseMessage.style.display = "block";
+                        isSubmitting = false;
+                    });
+            });
+
+            // Form validation function
+            function validateFormData(name, email, phone, message) {
+                var emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                var phonePattern = /^\+?[0-9\s\-\(\)]{7,}$/;
+
+                if (!name.trim()) {
+                    responseMessage.textContent = "Please enter your name.";
+                    responseMessage.className = "error";
+                    responseMessage.style.display = "block";
+                    return false;
+                }
+                if (!emailPattern.test(email)) {
+                    responseMessage.textContent = "Please enter a valid email address.";
+                    responseMessage.className = "error";
+                    responseMessage.style.display = "block";
+                    return false;
+                }
+                if (phone && !phonePattern.test(phone)) {
+                    responseMessage.textContent = "Please enter a valid phone number.";
+                    responseMessage.className = "error";
+                    responseMessage.style.display = "block";
+                    return false;
+                }
+                if (!message.trim()) {
+                    responseMessage.textContent = "Please enter your message.";
+                    responseMessage.className = "error";
+                    responseMessage.style.display = "block";
+                    return false;
+                }
+                responseMessage.style.display = "none"; // Hide error if everything is valid
+                return true;
+            }
+
+            // Handle Quick Reply Buttons - Only Populate the Message Textarea
+            var quickReplyButtons = document.querySelectorAll(".quick-reply");
+            for (var i = 0; i < quickReplyButtons.length; i++) {
+                quickReplyButtons[i].addEventListener("click", function (e) {
+                    e.preventDefault(); // Prevent any default behavior
+                    document.getElementById("message").value = this.getAttribute("data-message"); // Fill the message textarea
+                    this.style.display = "none"; // Hide the button after clicking
+                });
+            }
+
+            // Reset quick replies when chat is reopened
+            toggleButton.addEventListener("click", function () {
+                if (chatWidget.style.display === "flex") {
+                    for (var i = 0; i < quickReplyButtons.length; i++) {
+                        quickReplyButtons[i].style.display = "inline-block";
+                    }
+                }
+            });
+        }
+    });
+</script>
